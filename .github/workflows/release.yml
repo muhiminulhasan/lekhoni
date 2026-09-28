@@ -14,11 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # -UseStarterDictionary keeps the archive fully covered by LICENSE; the
-      # default merged-corpus dictionary must not be redistributed.
+      # The default package redistributes third-party-derived data under the
+      # upstream licenses; the archive carries the compliance set those
+      # licenses require (third-party-licenses\, THIRD_PARTY_NOTICES.md, and
+      # the source-form TSVs under source\). Use -UseStarterDictionary for an
+      # MIT-only package instead.
       - name: Build the distributable package
         shell: pwsh
-        run: ./package.ps1 -UseStarterDictionary
+        run: ./package.ps1
 
       - name: Compute SHA-256 checksum
         shell: pwsh
@@ -36,6 +39,6 @@ jobs:
             artifacts/Lekhoni-win-x86-x64.zip artifacts/checksums.txt `
             --title "Lekhoni ${{ github.ref_name }}" `
             --generate-notes `
-            --notes "Unsigned integration build. Ships the starter dictionary; see RELEASE_CHECKLIST.md before relying on it in production." `
+            --notes "Unsigned integration build. Third-party-derived data ships under its upstream licenses (GPL-2.0+, MPL-2.0, CC BY-SA 3.0) with the compliance set included; see THIRD_PARTY_NOTICES.md and RELEASE_CHECKLIST.md." `
             --prerelease
           # Remove --prerelease once binaries are Authenticode-signed.
