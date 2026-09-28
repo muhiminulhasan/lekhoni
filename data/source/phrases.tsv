@@ -1,0 +1,83 @@
+# Curated phrase layer for Lekhoni.
+#
+# Format (UTF-8, tab separated, `#` starts a comment):
+#
+#   phonetic<TAB>bangla<TAB>frequency[<TAB>prediction|list]
+#
+# This file is original work authored for this project and is covered by the
+# repository LICENSE. Unlike data\LekhoniCore.merged.bgk, it may be
+# redistributed. A phrase entry outranks the core dictionary and the
+# transliteration when the whole word has been typed, so it is the supported
+# way to correct a spelling without regenerating the core dictionary.
+#
+# Keep the list short and purposeful: names, brand spellings, and words the
+# general corpus renders differently. See data\README.md for the dictionary
+# format and the redistribution rules for the core dictionary.
+
+# Words whose correct spelling differs from the phonetic conversion.
+jiboner	জীবনের	20000
+jiboni	জীবনের	18000
+valobasi	ভালোবাসি	20000
+sontan	সন্তান	20000
+bhuvan	ভূমি	20000
+nari	নারী	20000
+kacher	কাচার	15000
+vuti	বুতি	15000
+jomabaj	জমাবাজ	15000
+bhabe	ভাবে	15000
+gaD	গাড়	20000
+niyom	নিয়ম	20000
+kaj	কাজ	20000
+boi	বই	20000
+kopal	কপাল	15000
+ghora	ঘোড়া	15000
+biral	বীরল	10000
+bhala	ভালা	10000
+
+# Words where a general rule would be wrong, or where a core dictionary key
+# disagrees with the spelling this project ships.
+#
+# nya is ন্য (n + its own phala). The merged core stores the letter name ঞ
+# under the exact key "nya", so the rule table cannot win here; the phrase
+# layer outranks the core dictionary and is the supported override.
+nya	ন্যা	20000
+
+# shunno is শুন্য: `nn` takes the n-phala and the final o stays inherent. The
+# inherent-o rule cannot see that an earlier vowel in the same word already
+# claimed the syllable, so the word is listed rather than the heuristic.
+shunno	শুন্য	20000
+
+# kokkho is কক্ষ. Listed as one word only, because `kkh` must stay ক্খ: a bare
+# `k` followed by `kh` really is ক্ + খ, and collapsing that to ক্ষ would
+# break every other kh word. Revisit only with a decision on `ksh` vs `kkh`.
+kokkho	কক্ষ	10000
+
+# noya is নয়া with the long o. The merged core has an exact key "noya" that
+# stores নয়, so the rule table's নয়া loses to it and the phrase has to win.
+noya	নয়া	20000
+
+# Next-word predictions. The fourth column is a pipe-separated local list shown
+# after the previous word is committed. The merged core dictionary carries no
+# prediction lists at all, so without these the prediction feature does nothing
+# in a shipped build; see docs/TEST_PLAN.md and the audit suite, which reports
+# how many entries a given image actually has.
+#
+# These are deliberately few and high-frequency. Predictions are a local hint,
+# not a language model, so a short accurate list beats a long noisy one.
+amar	আমার	20000	আমি|আমাকে|আমাদের|আমার
+ami	আমি	20000	আমার|আমাকে|আমি
+apni	আপনি	20000	আপনার|আপনাকে
+tumi	তুমি	20000	তোমার|তুমি
+bangla	বাংলা	20000	বাংলায়|বাংলাদেশ|বাংলা
+bangladesh	বাংলাদেশ	20000	বাংলাদেশি|বাংলাদেশের
+dhaka	ঢাকা	20000	ঢাকায়|ঢাকার
+jibon	জীবন	20000	জীবনের|জীবনে
+kono	কোন	20000	কোনো|কোন
+ki	কি	20000	কী|কিছু
+ni	নি	20000	নিয়ে|নিতে
+shudhu	শুধু	15000	শুধু
+bhalo	ভালো	20000	ভালোবাসি|ভালো
+boro	বড়	15000	বড়
+choto	ছোট	15000	ছোট
+bari	বাড়ি	20000	বাড়িতে|বাড়ির
+guR	গুড়	20000

@@ -1,0 +1,38 @@
+# Visual Studio / MSBuild
+.vs/
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+*.aps
+*.pdb
+*.ilk
+*.obj
+*.idb
+*.tlog
+*.log
+*.lastbuildstate
+
+# Third-party keyboard data (GPL/external - local development only)
+/data/source/avro/
+/data/source/openbangla/
+
+# Generated imports (the compiled core input is kept, see data/README.md)
+/data/source/imported-*.tsv
+!/data/source/imported-core.tsv
+!/data/source/imported-autodict.tsv
+
+# Generated installers and dictionaries
+/artifacts/
+*.msi
+*.msix
+*.appx
+*.appxbundle
+
+# Local settings
+*.local

@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # -UseStarterDictionary keeps the archive fully covered by LICENSE; the
+      # default merged-corpus dictionary must not be redistributed.
+      - name: Build the distributable package
+        shell: pwsh
+        run: ./package.ps1 -UseStarterDictionary
+
+      - name: Compute SHA-256 checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -LiteralPath 'artifacts/Lekhoni-win-x86-x64.zip' -Algorithm SHA256).Hash
+          "$($hash.ToLower())  Lekhoni-win-x86-x64.zip" | Out-File -Encoding ascii artifacts/checksums.txt
+          Get-Content artifacts/checksums.txt
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} `
+            artifacts/Lekhoni-win-x86-x64.zip artifacts/checksums.txt `
+            --title "Lekhoni ${{ github.ref_name }}" `
+            --generate-notes `
+            --notes "Unsigned integration build. Ships the starter dictionary; see RELEASE_CHECKLIST.md before relying on it in production." `
+            --prerelease
+          # Remove --prerelease once binaries are Authenticode-signed.

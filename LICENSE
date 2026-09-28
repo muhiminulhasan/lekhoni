@@ -1,0 +1,67 @@
+Lekhoni — Bangla phonetic IME for Windows
+=========================================
+
+Scope of this license
+---------------------
+
+The MIT License below applies to:
+
+  * all source code under src/, tools/, and tests/;
+  * build, package, and installation scripts;
+  * documentation;
+  * data/source/starter.tsv, data/source/phrases.tsv, and data/source/eval.tsv,
+    which are original work authored for this project.
+
+Data files keep their upstream licenses
+---------------------------------------
+
+The remaining files under data/ derive from third-party sources. They are NOT
+covered by the MIT grant and are licensed under — and redistributable only
+under the terms of — their upstream licenses. The provenance of each file is
+recorded in data/README.md:
+
+  data/compiled/LekhoniCore.merged.bgk       GPL-2.0-or-later  (Avro Keyboard Database.db3)
+  data/source/imported-core.tsv              GPL-2.0-or-later, with MPL-2.0 portions (Lekho suffix forms)
+  data/source/imported-keys.tsv              GPL-2.0-or-later  (derived from the merged corpus)
+  data/source/imported-autodict.tsv          MPL-2.0 (Lekho) with GPL-derived merges (Avro autodict)
+  data/source/imported-autodict-caps.tsv     same lineage as imported-autodict.tsv
+  data/compiled/avro-layout.dat              GPL-2.0-or-later  (OpenBangla avrophonetic.json)
+  data/compiled/LekhoniTrigrams.dat          CC BY-SA 3.0 / GFDL (Bengali Wikipedia)
+  data/source/corpus/                        CC BY-SA 3.0 / GFDL (Bengali Wikipedia)
+
+Compiled dictionaries under artifacts/ are build outputs and inherit the
+status of their inputs. The full texts of the upstream licenses are kept in
+third-party-licenses/, and the per-project attribution and derivation record
+is in THIRD_PARTY_NOTICES.md. Release packages that contain third-party-
+derived data ship both, together with the source-form TSVs, so the archive
+can be redistributed as-is under those terms.
+
+For a package covered by the MIT License alone, build with
+`build.ps1 -UseStarterDictionary` (or `package.ps1 -UseStarterDictionary`).
+
+If you obtained a copy of any data file from a third party rather than from
+this repository, that third party's terms apply to it.
+
+
+================================================================================
+MIT License
+
+Copyright (c) 2026 [COPYRIGHT HOLDER]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

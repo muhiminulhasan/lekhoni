@@ -1,0 +1,146 @@
+# Accuracy evaluation set for Lekhoni.
+#
+# Format (UTF-8, tab separated, `#` starts a comment):
+#
+#   phonetic<TAB>expected_bangla[<TAB>group]
+#
+# This is ground truth, not a dictionary. Every row is a spelling the project
+# considers correct, and the dictionary is measured against it. That distinction
+# matters: the shipped corpus is a frequency-ordered list, so scoring the
+# dictionary against itself would only measure whether it round-trips.
+#
+# `group` selects which metric a row joins. A row may appear in several groups
+# by being repeated with a different group; the first column is the key and the
+# last column never affects the measurement.
+#
+# Groups:
+#
+#   exact   Type the whole key. `directOutput` must equal the expected word.
+#           Measures the ranking signal and the exact-key lookup path.
+#
+#   prefix  Type the key minus its last two characters. The expected word must
+#           be reachable in the visible window. This is the mid-typing case
+#           and it is the one the corpus's flat score field hurts most.
+#
+#   typo    Type a single-edit mutation of the key and require the expected
+#           word to be recovered. Generated automatically from `exact` rows of
+#           at least four characters, so this group is not listed here.
+#
+#   case    Deliberate capitalisation that selects a different spelling. These
+#           must be typed exactly; a lowercase spelling of the same key is not
+#           accepted.
+#
+# Keep this list honest rather than large. A row here is a claim about correct
+# Bangla spelling, so a wrong row makes every metric worse while measuring
+# nothing real. Words whose spelling is genuinely contested, and rare
+# Sanskrit-derived forms where variants coexist, are deliberately left out.
+#
+# Two spellings in this file were got wrong the first time round and both were
+# caught by the harness, which is the reason to keep it:
+#
+#   * `shundor` was written শুন্দর with the long ঊ-kar. সুন্দর is the word.
+#   * Nine rows used the decomposed nukta form (U+09A1 U+09BC, U+09AF U+09BC)
+#     where the engine emits the precomposed one (U+09DC, U+09DF). The harness
+#     canonicalises both sides before comparing, so either form is accepted
+#     here, but the precomposed one matches the engine's output byte for byte
+#     and is what you should write.
+#
+# A `prefix` row needs a key of at least six characters, so the truncated
+# prefix is four or more. Shorter keys truncate to a prefix so short that its
+# top suggestion is legitimately a different word -- "pa" really does suggest
+# পা first -- and the row would score the engine for being right. Read this
+# group's top-5 and MRR; its top-1 is not a meaningful target.
+
+# --- everyday words --------------------------------------------------------
+bangla	বাংলা	exact
+bangladesh	বাংলাদেশ	exact
+bangladesh	বাংলাদেশ	prefix
+bangla	বাংলা	prefix
+ami	আমি	exact
+tumi	তুমি	exact
+apni	আপনি	exact
+amar	আমার	exact
+apnar	আপনার	exact
+amake	আমাকে	exact
+bhalo	ভালো	exact
+dhaka	ঢাকা	exact
+jibon	জীবন	exact
+jiboner	জীবনের	exact
+jiboner	জীবনের	prefix
+kothay	কোথায়	exact
+kothao	কোথাও	exact
+kothao	কোথাও	prefix
+kemon	কেমন	exact
+mone	মানে	exact
+bishoy	বিষয়	exact
+sonar	সোনার	exact
+kaj	কাজ	exact
+boi	বই	exact
+bari	বাড়ি	exact
+choto	ছোট	exact
+boro	বড়	exact
+shokal	সকাল	exact
+ratri	রাত্রি	exact
+bondhu	বন্ধু	exact
+bondhu	বন্ধু	prefix
+manush	মানুষ	exact
+manush	মানুষ	prefix
+bhasha	ভাষা	exact
+nadi	নদী	exact
+shesh	শেষ	exact
+tomar	তোমার	exact
+shundor	সুন্দর	exact
+namaskar	নমস্কার	exact
+biday	বিদায়	exact
+shikha	শিক্ষা	exact
+shikkhak	শিক্ষক	exact
+shikkhak	শিক্ষক	prefix
+bhalobash	ভালোবাস	exact
+bhalobash	ভালোবাস	prefix
+
+# --- numerals and counters -------------------------------------------------
+# Spelled-out numbers, which is where the Avro layout's vowel rules are most
+# often wrong and where an exact dictionary hit is the only thing saving it.
+dui	দুই	exact
+pach	পাঁচ	exact
+choy	ছয়	exact
+aath	আট	exact
+char	চার	exact
+
+# --- words the rule table gets wrong, or that need a curated phrase --------
+# These are the cases that justify the phrase layer: the transliterator alone
+# produces something different, and only the dictionary or an override
+# resolves them. They are the highest-signal rows in the file.
+valobasi	ভালোবাসি	exact
+sontan	সন্তান	exact
+shunno	শুন্য	exact
+nya	ন্যা	exact
+noya	নয়া	exact
+kokkho	কক্ষ	exact
+kacher	কাচার	exact
+vuti	বুতি	exact
+jomabaj	জমাবাজ	exact
+bhabe	ভাবে	exact
+niyom	নিয়ম	exact
+kopal	কপাল	exact
+ghora	ঘোড়া	exact
+hobo	হবে	exact
+dutiya	দ্বিতীয়	exact
+lo	লো	exact
+
+# --- case-sensitive disambiguation ----------------------------------------
+# A capital is a deliberate request for a specific spelling, so the lowercase
+# spelling of the same key must not satisfy these. valObasI keeps the long
+# ঈ-kar (ভালোবাসী) where valobasi takes the short one (ভালোবাসি), and valObas
+# drops the final vowel entirely (ভালোবাস).
+#
+# `kOra` is deliberately absent. The built-in rules produce কোরা, an older
+# comment in PhoneticTransliterator.cpp claimed করা, and the Avro layout table
+# that actually takes precedence at runtime has a third opinion that has not
+# been checked. Encoding any one of those as ground truth would make the metric
+# report a guess as a fact, which is the one thing this file must not do.
+valObasI	ভালোবাসী	case
+valObas	ভালোবাস	case
+kO	কো	case
+bhai	ভাই	case
+Dhaka	ঢাকা	case

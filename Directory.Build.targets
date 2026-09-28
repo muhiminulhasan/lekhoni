@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!--
+    The IME DLL is mapped into every GUI process that uses the profile, so
+    Control Flow Guard is cheap insurance against an indirect-call hijack.
+    /guard:cf ships with the base toolset, so this needs no extra component.
+
+    ControlFlowGuard is passed through AdditionalOptions rather than the
+    ControlFlowGuard metadata: the C++ targets on this toolset do not forward
+    that metadata to the CL and LINK tasks, so setting it has no effect.
+
+    Spectre mitigations (/Qspectre) require the optional "Spectre-mitigated
+    libs" component, which is not installed on every build machine, so they
+    are opt-in: pass -DLekhoniSpectreMitigations=true once it is available.
+  -->
+  <PropertyGroup>
+    <LekhoniSpectreMitigations Condition="'$(LekhoniSpectreMitigations)' == ''">false</LekhoniSpectreMitigations>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>/guard:cf %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions Condition="'$(LekhoniSpectreMitigations)' == 'true'">/Qspectre %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalOptions>/guard:cf %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions Condition="'$(LekhoniSpectreMitigations)' == 'true'">/Qspectre %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+
+</Project>

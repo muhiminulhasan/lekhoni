@@ -1,0 +1,6 @@
+LIBRARY LekhoniIME
+
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllAddRef PRIVATE
+    DllCanUnloadNow PRIVATE
