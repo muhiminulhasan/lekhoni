@@ -61,6 +61,7 @@ private:
     enum class KeyAction {
         None,
         Character,
+        Dari,
         Backspace,
         Space,
         Enter,
@@ -89,6 +90,10 @@ private:
     struct KeyDecision {
         KeyAction action = KeyAction::None;
         WCHAR character = 0;
+        // The virtual key survives alongside the character because the
+        // character alone cannot tell the numpad decimal from the main
+        // keyboard period; the two carry different Avro meanings.
+        UINT virtualKey = 0;
         std::size_t candidateIndex = 0;
     };
 
@@ -154,6 +159,11 @@ private:
     std::wstring userSelectionsPath_;
     std::size_t unsavedSelections_ = 0;
     std::size_t savedSelectionCount_ = 0;
+    // Last placement the host could describe for the composition. It is the
+    // final fallback for hosts whose views cannot answer GetTextExt at all.
+    int lastCandidateX_ = 0;
+    int lastCandidateY_ = 0;
+    bool hasCandidateAnchor_ = false;
 };
 
 } // namespace lekho::win

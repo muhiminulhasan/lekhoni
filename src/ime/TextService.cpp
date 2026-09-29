@@ -62,6 +62,28 @@ HRESULT setSelectionAtEnd(ITfContext* context, TfEditCookie cookie, ITfRange* ra
     return result;
 }
 
+// The classic caret of this thread's focused window, in screen coordinates.
+// CUAS and other emulated hosts create a real caret even when their views
+// cannot answer GetTextExt, which makes it a usable anchor for the candidate
+// window there.
+bool caretAnchor(int* x, int* y) noexcept {
+    if (x == nullptr || y == nullptr) {
+        return false;
+    }
+    GUITHREADINFO info{};
+    info.cbSize = sizeof(info);
+    if (!GetGUIThreadInfo(GetCurrentThreadId(), &info) || info.hwndCaret == nullptr) {
+        return false;
+    }
+    POINT baseline{info.rcCaret.left, info.rcCaret.bottom};
+    if (!ClientToScreen(info.hwndCaret, &baseline)) {
+        return false;
+    }
+    *x = baseline.x;
+    *y = baseline.y;
+    return true;
+}
+
 } // namespace
 
 class EditSession final : public ITfEditSession {
@@ -551,9 +573,10 @@ HRESULT STDMETHODCALLTYPE TextService::ActivateEx(ITfThreadMgr* threadManager,
 
 HRESULT TextService::activateInternal(ITfThreadMgr* threadManager, TfClientId clientId,
                                       DWORD flags) {
-    if ((flags & TF_TMAE_COMLESS) != 0) {
-        return E_NOTIMPL;
-    }
+    (void)flags;
+    // TF_TMAE_COMLESS hosts (console windows and other embedded hosts) are
+    // activated too: key handling and edit sessions do not require COM-based
+    // UI, and every optional piece below degrades gracefully on failure.
     if (threadManager == nullptr || clientId == TF_CLIENTID_NULL) {
         return E_INVALIDARG;
     }
@@ -789,6 +812,9 @@ HRESULT STDMETHODCALLTYPE TextService::OnSetFocus(ITfDocumentMgr* focused,
                                                    ITfDocumentMgr* previous) {
     (void)previous;
     abandonComposition();
+    // The anchor belongs to the document that produced it; a new document
+    // must not inherit it before it has described a rectangle of its own.
+    hasCandidateAnchor_ = false;
 
     ITfContext* newContext = nullptr;
     if (focused != nullptr) {
@@ -845,6 +871,7 @@ HRESULT STDMETHODCALLTYPE TextService::OnKillThreadFocus() {
     pendingDecisionValid_ = false;
     candidateWindow_.hide();
     abandonComposition();
+    hasCandidateAnchor_ = false;
     if (focusedContext_ != nullptr) {
         focusedContext_->Release();
         focusedContext_ = nullptr;
@@ -949,6 +976,19 @@ TextService::KeyDecision TextService::classify(WPARAM key, LPARAM parameter) con
     if (!isInputCharacter(character)) {
         return decision;
     }
+
+    // Avro convention: the main keyboard period is the dari key, and only the
+    // numpad decimal types a literal doshomik dot. Away from an open phonetic
+    // composition the period would otherwise reach the application as a raw
+    // ASCII dot, so it is claimed here; with a Ctrl+Space suggestion open,
+    // either key commits the picked word first.
+    if (!composing_ && character == L'.' &&
+        (banglaSuggestionActive_ || key != VK_DECIMAL)) {
+        decision.action = KeyAction::Dari;
+        decision.virtualKey = static_cast<UINT>(key);
+        return decision;
+    }
+
     if (!composing_ && !banglaSuggestionActive_ &&
         !((character >= L'a' && character <= L'z') ||
           (character >= L'A' && character <= L'Z') ||
@@ -958,6 +998,7 @@ TextService::KeyDecision TextService::classify(WPARAM key, LPARAM parameter) con
 
     decision.action = KeyAction::Character;
     decision.character = character;
+    decision.virtualKey = static_cast<UINT>(key);
     return decision;
 }
 
@@ -1022,6 +1063,14 @@ HRESULT TextService::execute(const KeyDecision& decision, ITfContext* context, B
         *eaten = TRUE;
         if (banglaSuggestionActive_) {
             clearBanglaSuggestions();
+        }
+        // The numpad decimal is the doshomik key: its dot must stay literal
+        // even where the layout would rewrite '.' as dari, so it enters the
+        // buffer through the backslash escape.
+        if (decision.character == L'.' && decision.virtualKey == VK_DECIMAL) {
+            if (!engine_.appendCodePoint(U'\\')) {
+                return S_OK;
+            }
         }
         if (!engine_.appendCodePoint(static_cast<char32_t>(decision.character))) {
             return S_OK;
@@ -1102,6 +1151,32 @@ HRESULT TextService::execute(const KeyDecision& decision, ITfContext* context, B
         }
         *eaten = TRUE;
         return S_OK;
+    case KeyAction::Dari: {
+        // The main period becomes the dari (।); the numpad decimal keeps a
+        // literal dot. With a Ctrl+Space suggestion open, either key commits
+        // the picked word first. A failed edit session degrades to the
+        // application's own key handling rather than eating the keystroke.
+        const wchar_t* trailing = decision.virtualKey == VK_DECIMAL ? L"." : L"\x0964";
+        *eaten = TRUE;
+        if (banglaSuggestionActive_) {
+            if (FAILED(finishBanglaSuggestion(trailing))) {
+                *eaten = FALSE;
+            }
+            return S_OK;
+        }
+        ITfContext* resolved = nullptr;
+        const HRESULT resolvedResult = resolveContext(context, &resolved);
+        if (FAILED(resolvedResult)) {
+            *eaten = FALSE;
+            return S_OK;
+        }
+        const HRESULT inserted = requestEdit(resolved, EditMode::Insert, trailing);
+        resolved->Release();
+        if (FAILED(inserted)) {
+            *eaten = FALSE;
+        }
+        return S_OK;
+    }
     case KeyAction::CandidatePrevious:
         candidateWindow_.selectPrevious();
         *eaten = TRUE;
@@ -1459,7 +1534,10 @@ void TextService::positionCandidates(TfEditCookie cookie, ITfContext* context) {
     bool positioned = false;
     if (SUCCEEDED(context->GetActiveView(&view)) && view != nullptr) {
         BOOL clipped = FALSE;
-        positioned = SUCCEEDED(view->GetTextExt(cookie, range, &rectangle, &clipped));
+        // A zero-height rectangle is not a placement: some hosts return an
+        // empty rect before they have laid the composition out.
+        positioned = SUCCEEDED(view->GetTextExt(cookie, range, &rectangle, &clipped)) &&
+                     rectangle.bottom > rectangle.top;
         view->Release();
     }
     if (composition_ != nullptr) {
@@ -1467,12 +1545,30 @@ void TextService::positionCandidates(TfEditCookie cookie, ITfContext* context) {
     } else if (selection.range != nullptr) {
         selection.range->Release();
     }
-    if (!positioned) {
-        candidateWindow_.hide();
+
+    // A host that cannot describe the composition rectangle (CUAS emulation,
+    // views that lay out on paint) would otherwise keep the window hidden
+    // even though the composition itself works. Fall back to the thread's
+    // real caret, then to the last rectangle this document did describe.
+    if (positioned) {
+        lastCandidateX_ = rectangle.left;
+        lastCandidateY_ = rectangle.bottom + 5;
+        hasCandidateAnchor_ = true;
+        candidateWindow_.show(lastCandidateX_, lastCandidateY_);
         return;
     }
 
-    candidateWindow_.show(rectangle.left, rectangle.bottom + 5);
+    int x = 0;
+    int y = 0;
+    if (caretAnchor(&x, &y)) {
+        candidateWindow_.show(x, y + 5);
+        return;
+    }
+    if (hasCandidateAnchor_) {
+        candidateWindow_.show(lastCandidateX_, lastCandidateY_);
+        return;
+    }
+    candidateWindow_.hide();
 }
 
 void TextService::clearCompositionState() noexcept {

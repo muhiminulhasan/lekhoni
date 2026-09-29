@@ -530,6 +530,9 @@ void testPhonetics() {
     expectEqual(converter.transliterate("amar bangla khub bhalo"), "আমার বাংলা খুব ভালো", "common phrase");
     expectEqual(converter.transliterate("123"), "১২৩", "Bangla digits");
     expectEqual(converter.transliterate("12.5"), "১২.৫", "decimal point");
+    expectEqual(converter.transliterate("."), "\xE0\xA5\xA4", "standalone period is the danda");
+    expectEqual(converter.transliterate("1\\."), "১.",
+                "escaped dot stays a literal doshomik");
     expectEqual(converter.transliterate("bangla?"), "বাংলা?", "punctuation");
     expectEqual(converter.transliterate("`e"), "e", "literal escape");
     expectEqual(converter.transliterate("বাংলা"), "বাংলা", "Bangla passthrough");

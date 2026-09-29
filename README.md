@@ -160,6 +160,8 @@ Lekhoni installs a Bengali Bangladesh (`0x0845`) profile. Select
 | `1`–`9` | Commit the corresponding visible suggestion. |
 | `Space` | Commit the selected result and insert a space. |
 | `Enter` | Commit the current result and insert a line break. |
+| `.` (main keyboard) | Dari (।) — inserted immediately after a committed word, and applied by the layout rules inside a composition (`12.5` → ১২.৫). |
+| `.` (numpad, `NumLock` on) | A literal doshomik dot, always — even inside a composition. |
 | `Esc` | Cancel the current composition or suggestion list. |
 | `Backspace` | Remove the last typed character; the word recomposes live. |
 | `Ctrl+Backspace` | Delete the whole word being composed and close the candidate window. |
@@ -503,6 +505,11 @@ A missing dictionary or layout table silently degrades to fewer suggestions
 and the fallback rules — by design, typing never breaks. Without the layout
 table, spellings revert to the built-in rules (for example `vasha` instead of
 ভাষা).
+
+Some applications cannot report the on-screen rectangle of the composition;
+in those the window is placed from the application's own caret or the last
+known position instead of hiding. If a host still never shows the list,
+note the application name — it is a host-integration gap worth reporting.
 
 ### A 64-bit or 32-bit app does not use Lekhoni
 

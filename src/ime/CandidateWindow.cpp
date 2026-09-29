@@ -43,7 +43,10 @@ bool CandidateWindow::create(HINSTANCE instance, SelectionCallback callback, HWN
     if (owner == nullptr) {
         owner = GetActiveWindow();
     }
-    window_ = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+    // TOPMOST keeps the list visible above windows that sit in higher
+    // z-order bands; the window is hidden on every focus change, so it can
+    // never outlive the thread that showed it.
+    window_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                               kClassName, L"Lekhoni", WS_POPUP, 0, 0, width_, height_,
                               owner, nullptr, instance, this);
     if (window_ == nullptr) {
@@ -105,7 +108,10 @@ void CandidateWindow::show(int x, int y) {
     int monitorTop = 0;
     int monitorRight = GetSystemMetrics(SM_CXSCREEN);
     int monitorBottom = GetSystemMetrics(SM_CYSCREEN);
-    HMONITOR monitor = MonitorFromWindow(window_, MONITOR_DEFAULTTONEAREST);
+    // Clamp against the monitor the anchor point lives on, not the one the
+    // window was last shown on; the two differ across a monitor change.
+    const POINT anchorPoint{x, y};
+    HMONITOR monitor = MonitorFromPoint(anchorPoint, MONITOR_DEFAULTTONEAREST);
     MONITORINFO monitorInfo{sizeof(monitorInfo)};
     if (monitor != nullptr && GetMonitorInfoW(monitor, &monitorInfo)) {
         monitorLeft = monitorInfo.rcMonitor.left;

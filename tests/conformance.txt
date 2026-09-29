@@ -102,6 +102,9 @@ ri	রি
 # --- digits, punctuation, and passthrough --------------------------------
 123	১২৩
 12.5	১২.৫
+.	।
+ami.	আমি।
+1\.	১.
 bangla?	বাংলা?
 `e	এ
 @	@

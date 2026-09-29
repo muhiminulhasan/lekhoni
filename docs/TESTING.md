@@ -52,6 +52,22 @@ the same layout, so run the steps below against each path once.
 4. Press the shortcut again after moving the caret; no stale range may be replaced.
 5. Commit `bangla`, then begin another phonetic word and confirm the local hint list is available without any network access.
 
+## Dari and doshomik keys
+
+1. Type `ami`, press `Space`, then press the main keyboard `.`; the document
+   must contain `আমি ।` — the dari (`U+0964`), not a raw ASCII dot.
+2. Type `ami` and press `.` without committing; the composition shows
+   `আমি।` and `Space` commits it with the underline released.
+3. With `NumLock` on, press the numpad `.`; a literal dot is typed (after a
+   committed word it appears immediately, inside a composition it joins the
+   word as `১.` for `1` + numpad `.`).
+4. Type `12.5`; the result is `১২.৫` with the doshomik between the digits.
+5. With a `Ctrl+Space` suggestion list open, press `.`; the picked word is
+   committed and followed by the dari.
+6. Repeat step 1 in a host that showed no candidate window before; the dari
+   must still appear (this path does not depend on the host's composition
+   rectangle reporting).
+
 ## UI and lifecycle
 
 1. Move the candidate window between monitors with different DPI settings.
@@ -59,6 +75,9 @@ the same layout, so run the steps below against each path once.
 3. Minimize the owning application; no popup may remain stranded.
 4. Open a read-only text control; typing must not corrupt the document.
 5. Close the application during an active composition and restart it.
+6. In an application where the candidate window previously never appeared
+   (Bangla composed fine but no list), type a two-candidate word; the list
+   must now appear, anchored to the host caret or the last known position.
 
 ## Registration diagnostics
 
