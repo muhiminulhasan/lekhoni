@@ -79,7 +79,7 @@ The project is designed around three goals:
 - A private selection memory that learns your picks and promotes them.
 - The as-typed layout conversion always remains selectable in the candidate
   list, even when dictionary hits exist.
-- Owned Win32 candidate window; no separate suggestion process.
+- Candidates render through the Windows system candidate UI (TSF candidate-list UI element) in hosts that support it - the same mechanism the built-in keyboards use - and on an owned Win32 candidate window everywhere else. No separate suggestion process.
 
 ### Windows integration
 
@@ -87,6 +87,7 @@ The project is designed around three goals:
 - Key, composition, thread-focus, and thread-manager event handling.
 - TSF edit sessions with context-ownership and cross-document protection.
 - Display-attribute provider for a subtle dotted composition underline.
+- Candidate-list UI element publishing plus the UIElement-enabled TIP capability category.
 - Modern TSF profile/category registration; separate x86/x64 COM entries.
 - Bengali Bangladesh language profile (`0x0845`).
 - Control Flow Guard (/guard:cf) in the shipped DLL.

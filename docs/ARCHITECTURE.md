@@ -64,7 +64,7 @@ The adapter owns only Windows-specific concerns:
 - optional TSF display attributes for the active composition;
 - per-user storage paths in future revisions.
 
-The adapter must not contain phonetic or ranking rules. The current implementation uses an owned Win32 candidate window and does not advertise an unverified UIElement/immersive capability.
+The adapter must not contain phonetic or ranking rules. The candidate list is published twice: as a TSF candidate-list UI element for hosts that render the system candidate UI (Chromium, UWP, immersive surfaces), and on an owned Win32 candidate window for hosts that decline it. The UI element capability category is registered.
 
 ## Suggestion flow
 

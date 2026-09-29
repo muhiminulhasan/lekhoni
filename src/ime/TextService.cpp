@@ -2,6 +2,7 @@
 
 #include "DllMain.h"
 #include "Ids.h"
+#include "UiElement.h"
 #include "WinText.h"
 
 #include "lekhoni/AvroLayoutEngine.h"
@@ -607,6 +608,11 @@ HRESULT TextService::activateInternal(ITfThreadMgr* threadManager, TfClientId cl
     }
     keySinkAdvised_ = true;
 
+    // The UI element manager is optional: without it the owned candidate
+    // window covers every host, but the system candidate UI never appears.
+    (void)threadManager_->QueryInterface(IID_ITfUIElementMgr,
+                                         reinterpret_cast<void**>(&uiElementMgr_));
+
     if (SUCCEEDED(threadManager_->QueryInterface(IID_ITfSource,
                                                  reinterpret_cast<void**>(&source_))) &&
         source_ != nullptr) {
@@ -650,10 +656,15 @@ HRESULT STDMETHODCALLTYPE TextService::Deactivate() {
 
     abandonComposition();
     candidateWindow_.destroy();
+    endCandidateUi();
     saveUserSelections();
     engine_.clearContext();
     engine_.reset();
 
+    if (uiElementMgr_ != nullptr) {
+        uiElementMgr_->Release();
+        uiElementMgr_ = nullptr;
+    }
     if (keystrokeManager_ != nullptr) {
         if (keySinkAdvised_) {
             keystrokeManager_->UnadviseKeyEventSink(clientId_);
@@ -1179,18 +1190,22 @@ HRESULT TextService::execute(const KeyDecision& decision, ITfContext* context, B
     }
     case KeyAction::CandidatePrevious:
         candidateWindow_.selectPrevious();
+        notifyCandidateUiSelection();
         *eaten = TRUE;
         return S_OK;
     case KeyAction::CandidateNext:
         candidateWindow_.selectNext();
+        notifyCandidateUiSelection();
         *eaten = TRUE;
         return S_OK;
     case KeyAction::CandidatePagePrevious:
         candidateWindow_.select(0);
+        notifyCandidateUiSelection();
         *eaten = TRUE;
         return S_OK;
     case KeyAction::CandidatePageNext:
         candidateWindow_.select(candidateWindow_.count() - 1);
+        notifyCandidateUiSelection();
         *eaten = TRUE;
         return S_OK;
     case KeyAction::CandidateSelect:
@@ -1439,6 +1454,7 @@ void TextService::clearBanglaSuggestions() noexcept {
     banglaPrefixLength_ = 0;
     banglaPrefix_.clear();
     banglaSuggestionActive_ = false;
+    endCandidateUi();
     candidateWindow_.clear();
 }
 
@@ -1481,6 +1497,7 @@ void TextService::setBanglaSuggestions(std::string prefix, ITfContext* context) 
         }
     }
     candidateWindow_.setCandidates(std::move(display));
+    syncCandidateUi();
 }
 
 void TextService::updateCandidates() {
@@ -1499,11 +1516,15 @@ void TextService::updateCandidates() {
     candidateWindow_.setCandidates(std::move(candidates));
     if (candidateWindow_.count() < 2) {
         candidateWindow_.hide();
+        endCandidateUi();
+        return;
     }
+    syncCandidateUi();
 }
 
 void TextService::positionCandidates(TfEditCookie cookie, ITfContext* context) {
     if (context == nullptr || candidateWindow_.count() < 2 ||
+        systemRendersCandidates_ ||
         (composition_ == nullptr && !banglaSuggestionActive_)) {
         return;
     }
@@ -1572,6 +1593,7 @@ void TextService::positionCandidates(TfEditCookie cookie, ITfContext* context) {
 }
 
 void TextService::clearCompositionState() noexcept {
+    endCandidateUi();
     if (composition_ != nullptr) {
         composition_->Release();
         composition_ = nullptr;
@@ -1667,6 +1689,73 @@ void TextService::onCandidateClicked(std::size_t index) {
     } catch (...) {
         abandonComposition();
     }
+}
+
+// Publishes the current candidate list through the TSF UI element mechanism.
+// Returns true when the system renders the list itself, in which case the
+// owned candidate window must stay hidden.
+bool TextService::syncCandidateUi() {
+    if (uiElementMgr_ == nullptr || candidateWindow_.count() < 2 ||
+        (composition_ == nullptr && !banglaSuggestionActive_)) {
+        endCandidateUi();
+        return false;
+    }
+    if (candidateUiElement_ == nullptr) {
+        auto* element = new (std::nothrow) CandidateListUiElement(this);
+        if (element == nullptr) {
+            return false;
+        }
+        // On input TRUE means "the text service would like to draw its own
+        // UI"; on return FALSE means the host takes the element and renders
+        // the system candidate UI from it instead.
+        BOOL show = TRUE;
+        const HRESULT result = uiElementMgr_->BeginUIElement(element, &show, &uiElementId_);
+        if (FAILED(result)) {
+            element->Release();
+            uiElementId_ = TF_INVALID_UIELEMENTID;
+            return false;
+        }
+        candidateUiElement_ = element;
+        systemRendersCandidates_ = show == FALSE;
+        if (systemRendersCandidates_) {
+            candidateWindow_.hide();
+        }
+    } else if (systemRendersCandidates_) {
+        uiElementMgr_->UpdateUIElement(uiElementId_);
+    }
+    return systemRendersCandidates_;
+}
+
+void TextService::endCandidateUi() noexcept {
+    systemRendersCandidates_ = false;
+    if (uiElementMgr_ != nullptr && candidateUiElement_ != nullptr &&
+        uiElementId_ != TF_INVALID_UIELEMENTID) {
+        uiElementMgr_->EndUIElement(uiElementId_);
+    }
+    uiElementId_ = TF_INVALID_UIELEMENTID;
+    if (candidateUiElement_ != nullptr) {
+        candidateUiElement_->Release();
+        candidateUiElement_ = nullptr;
+    }
+}
+
+void TextService::notifyCandidateUiSelection() noexcept {
+    if (systemRendersCandidates_ && uiElementMgr_ != nullptr &&
+        candidateUiElement_ != nullptr && uiElementId_ != TF_INVALID_UIELEMENTID) {
+        uiElementMgr_->UpdateUIElement(uiElementId_);
+    }
+}
+
+void TextService::setCandidateSelection(std::size_t index) {
+    if (index >= candidateWindow_.count()) {
+        return;
+    }
+    candidateWindow_.select(index);
+    notifyCandidateUiSelection();
+}
+
+ITfContext* TextService::compositionContext() const noexcept {
+    return context_ != nullptr ? context_ : suggestionContext_;
 }
 
 // Reads a BGDX image from beside the module. Returns an empty string when the

@@ -139,8 +139,15 @@ bool registerCategories() {
         lekho::win::kTextServiceClsid, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
         lekho::win::kTextServiceClsid);
     printResult(L"Register display attribute provider category", displayResult);
+    // Hosts restricted to UI-element rendering (immersive surfaces) activate
+    // only text services that advertise this capability.
+    const HRESULT uiElementResult = categories->RegisterCategory(
+        lekho::win::kTextServiceClsid, GUID_TFCAT_TIPCAP_UIELEMENTENABLED,
+        lekho::win::kTextServiceClsid);
+    printResult(L"Register UI element capability category", uiElementResult);
     categories->Release();
-    return SUCCEEDED(result) && SUCCEEDED(keyboardResult) && SUCCEEDED(displayResult);
+    return SUCCEEDED(result) && SUCCEEDED(keyboardResult) && SUCCEEDED(displayResult) &&
+           SUCCEEDED(uiElementResult);
 }
 
 bool unregisterCategories() {
@@ -159,11 +166,15 @@ bool unregisterCategories() {
     const HRESULT display = categories->UnregisterCategory(
         lekho::win::kTextServiceClsid, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
         lekho::win::kTextServiceClsid);
+    const HRESULT uiElement = categories->UnregisterCategory(
+        lekho::win::kTextServiceClsid, GUID_TFCAT_TIPCAP_UIELEMENTENABLED,
+        lekho::win::kTextServiceClsid);
     categories->Release();
     const bool categoryOkay = SUCCEEDED(category) || category == REGDB_E_CLASSNOTREG;
     const bool keyboardOkay = SUCCEEDED(keyboard) || keyboard == REGDB_E_CLASSNOTREG;
     const bool displayOkay = SUCCEEDED(display) || display == REGDB_E_CLASSNOTREG;
-    return categoryOkay && keyboardOkay && displayOkay;
+    const bool uiElementOkay = SUCCEEDED(uiElement) || uiElement == REGDB_E_CLASSNOTREG;
+    return categoryOkay && keyboardOkay && displayOkay && uiElementOkay;
 }
 
 bool registerProfile(const std::filesystem::path& dllPath) {

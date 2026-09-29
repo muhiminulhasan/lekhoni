@@ -34,6 +34,7 @@ public:
     [[nodiscard]] std::size_t count() const noexcept { return candidates_.size(); }
     [[nodiscard]] std::size_t selectedIndex() const noexcept { return selectedIndex_; }
     [[nodiscard]] const std::wstring& selected() const noexcept;
+    [[nodiscard]] const std::wstring& at(std::size_t index) const noexcept;
 
 private:
     static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);

@@ -169,6 +169,11 @@ const std::wstring& CandidateWindow::selected() const noexcept {
     return selectedIndex_ < candidates_.size() ? candidates_[selectedIndex_] : empty;
 }
 
+const std::wstring& CandidateWindow::at(std::size_t index) const noexcept {
+    static const std::wstring empty;
+    return index < candidates_.size() ? candidates_[index] : empty;
+}
+
 void CandidateWindow::invalidate() noexcept {
     if (window_ != nullptr) {
         InvalidateRect(window_, nullptr, FALSE);

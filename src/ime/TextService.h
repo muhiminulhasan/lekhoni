@@ -12,6 +12,8 @@
 
 namespace lekho::win {
 
+class CandidateListUiElement;
+
 class TextService final : public ITfTextInputProcessorEx,
                           public ITfKeyEventSink,
                           public ITfCompositionSink,
@@ -57,6 +59,7 @@ public:
 
 private:
     friend class EditSession;
+    friend class CandidateListUiElement;
 
     enum class KeyAction {
         None,
@@ -127,6 +130,14 @@ private:
     bool saveUserSelections();
     static std::uint32_t currentDayStamp() noexcept;
 
+    // Candidate list publishing through the TSF UI element mechanism. When
+    // the system renders the list, the owned candidate window stays hidden.
+    bool syncCandidateUi();
+    void endCandidateUi() noexcept;
+    void notifyCandidateUiSelection() noexcept;
+    void setCandidateSelection(std::size_t index);
+    [[nodiscard]] ITfContext* compositionContext() const noexcept;
+
     volatile LONG referenceCount_ = 1;
     ITfThreadMgr* threadManager_ = nullptr;
     ITfKeystrokeMgr* keystrokeManager_ = nullptr;
@@ -156,6 +167,10 @@ private:
     std::vector<bn::InputCandidate> banglaCandidates_;
     bn::InputEngine engine_;
     CandidateWindow candidateWindow_;
+    ITfUIElementMgr* uiElementMgr_ = nullptr;
+    CandidateListUiElement* candidateUiElement_ = nullptr;
+    DWORD uiElementId_ = TF_INVALID_UIELEMENTID;
+    bool systemRendersCandidates_ = false;
     std::wstring userSelectionsPath_;
     std::size_t unsavedSelections_ = 0;
     std::size_t savedSelectionCount_ = 0;

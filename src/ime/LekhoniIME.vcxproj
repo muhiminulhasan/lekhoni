@@ -61,6 +61,7 @@
     <ClInclude Include="Ids.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="TextService.h" />
+    <ClInclude Include="UiElement.h" />
     <ClInclude Include="WinText.h" />
   </ItemGroup>
   <ItemGroup>
@@ -69,6 +70,7 @@
     <ClCompile Include="DisplayAttribute.cpp" />
     <ClCompile Include="DllMain.cpp" />
     <ClCompile Include="TextService.cpp" />
+    <ClCompile Include="UiElement.cpp" />
     <ClCompile Include="WinText.cpp" />
   </ItemGroup>
   <ItemGroup><ResourceCompile Include="LekhoniIME.rc" /></ItemGroup>

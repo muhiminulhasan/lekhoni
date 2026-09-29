@@ -20,4 +20,10 @@ constexpr GUID kCompositionDisplayAttributeGuid = {
     0x7B9F89E8, 0x70F7, 0x439C,
     {0x8B, 0x74, 0x46, 0x0E, 0x35, 0xD4, 0x3C, 0x28}};
 
+// Identifies the candidate list this text service publishes as a TSF UI
+// element. The system candidate UI reports it back through GetGUID.
+constexpr GUID kCandidateListUiElementGuid = {
+    0x3D8C5A7E, 0x9B24, 0x4E61,
+    {0xA5, 0xC8, 0x1F, 0x6D, 0x92, 0xB4, 0xE7, 0x03}};
+
 } // namespace lekho::win
