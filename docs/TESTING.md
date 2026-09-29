@@ -15,6 +15,10 @@ the same layout, so run the steps below against each path once.
 4. Confirm the profile remains available after an upgrade, disappears after
    `uninstall.ps1` and after `LekhoniSetup.exe --uninstall` (or Settings >
    Apps), and that the entry is gone from Settings > Apps afterwards.
+5. While some Lekhoni files are still loaded (type in an app, keep it open),
+   run `uninstall.ps1`: confirm it reports the locked leftovers, schedules the
+   `LekhoniCleanup` task, asks about signing out, and that the leftovers and
+   the task are gone after the next sign-in.
 
 ## Phonetic composition
 

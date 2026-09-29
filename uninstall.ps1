@@ -47,9 +47,58 @@ if ((Test-Path -LiteralPath $comKey) -or (Test-Path -LiteralPath $comKeyWow)) {
 
 $expectedParent = [IO.Path]::GetFullPath($programFiles).TrimEnd('\') + '\'
 $resolvedInstallRoot = [IO.Path]::GetFullPath($installRoot)
+$leftovers = $false
 if ($resolvedInstallRoot.StartsWith($expectedParent, [StringComparison]::OrdinalIgnoreCase) -and
     (Test-Path -LiteralPath $resolvedInstallRoot)) {
-    Remove-Item -LiteralPath $resolvedInstallRoot -Recurse -Force
+    try {
+        Remove-Item -LiteralPath $resolvedInstallRoot -Recurse -Force -ErrorAction Stop
+    } catch {
+        # The IME DLL is loaded into every running application that typed with
+        # it, so locked files are the expected outcome, not an error.
+        $leftovers = $true
+    }
+}
+if (Test-Path -LiteralPath $resolvedInstallRoot) {
+    $leftovers = $true
 }
 
-Write-Host 'Lekhoni unregistered and removed. Sign out and back in to refresh the language list.'
+# Remove the per-user selection memory for the current user. Other profiles'
+# copies are harmless preference files and are left alone.
+$localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+$userMemory = Join-Path $localAppData 'Lekhoni'
+if ($userMemory.StartsWith((Join-Path $localAppData '').TrimEnd('\') + '\',
+        [StringComparison]::OrdinalIgnoreCase) -and
+    (Test-Path -LiteralPath $userMemory)) {
+    Remove-Item -LiteralPath $userMemory -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+if ($leftovers) {
+    # A SYSTEM task at next sign-in can delete files no running process holds
+    # any more; nothing loads the DLL after this script, because both
+    # architectures were unregistered above.
+    $cleanupDirectory = Join-Path ([Environment]::GetFolderPath(
+        [Environment+SpecialFolder]::CommonApplicationData)) 'LekhoniCleanup'
+    $cleanupScript = Join-Path $cleanupDirectory 'cleanup.cmd'
+    New-Item -ItemType Directory -Path $cleanupDirectory -Force | Out-Null
+    @(
+        '@echo off'
+        "rd /s /q `"$resolvedInstallRoot`""
+        'schtasks /delete /tn "LekhoniCleanup" /f >nul 2>&1'
+        "rd /s /q `"$cleanupDirectory`""
+    ) | Set-Content -LiteralPath $cleanupScript -Encoding Ascii
+    schtasks.exe /create /tn 'LekhoniCleanup' /tr "`"$cleanupScript`"" /sc onlogon /ru SYSTEM /f | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Could not schedule the logon cleanup; remove $resolvedInstallRoot manually after signing out."
+    } else {
+        Write-Host 'Some files were still loaded by running applications.'
+        Write-Host 'A scheduled task (LekhoniCleanup) will delete the leftovers at the next sign-in.'
+    }
+}
+
+$answer = Read-Host 'Sign out now to refresh the language list? [Y/N]'
+if ($answer -match '^\s*[Yy]') {
+    Write-Host 'Signing out...'
+    logoff.exe
+} else {
+    Write-Host 'Lekhoni unregistered and removed. Sign out and back in to refresh the language list.'
+}

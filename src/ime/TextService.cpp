@@ -147,6 +147,8 @@ public:
                 return cancelComposition(cookie);
             case TextService::EditMode::Insert:
                 return insertText(cookie, text_ + trailing_);
+            case TextService::EditMode::Position:
+                return positionForCandidates(cookie);
             case TextService::EditMode::ReadBanglaPrefix:
                 return readBanglaPrefix(cookie);
             case TextService::EditMode::ReplaceBanglaPrefix:
@@ -218,6 +220,7 @@ private:
         owner_->composing_ = true;
         owner_->updateCandidates();
         owner_->positionCandidates(cookie, context_);
+        owner_->adviseLayoutSink();
         return S_OK;
     }
 
@@ -416,6 +419,21 @@ private:
         return result;
     }
 
+    // Re-positions the candidate window from a later read-only session. Hosts
+    // that lay text out asynchronously reject GetTextExt while the composing
+    // edit session is still open; this is the retry after their layout pass.
+    HRESULT positionForCandidates(TfEditCookie cookie) {
+        if (owner_->composition_ == nullptr && !owner_->banglaSuggestionActive_) {
+            return S_OK;
+        }
+        ITfContext* context = owner_->compositionContext();
+        if (context == nullptr) {
+            return S_OK;
+        }
+        owner_->positionCandidates(cookie, context);
+        return S_OK;
+    }
+
     HRESULT insertText(TfEditCookie cookie, const std::wstring& combined) {
         if (combined.size() > static_cast<std::size_t>(kMaximumEditCharacters)) {
             return E_INVALIDARG;
@@ -548,6 +566,11 @@ HRESULT STDMETHODCALLTYPE TextService::QueryInterface(REFIID iid, void** object)
         AddRef();
         return S_OK;
     }
+    if (iid == __uuidof(ITfTextLayoutSink)) {
+        *object = static_cast<ITfTextLayoutSink*>(this);
+        AddRef();
+        return S_OK;
+    }
     return E_NOINTERFACE;
 }
 
@@ -657,6 +680,7 @@ HRESULT STDMETHODCALLTYPE TextService::Deactivate() {
     abandonComposition();
     candidateWindow_.destroy();
     endCandidateUi();
+    unadviseLayoutSink();
     saveUserSelections();
     engine_.clearContext();
     engine_.reset();
@@ -1455,6 +1479,7 @@ void TextService::clearBanglaSuggestions() noexcept {
     banglaPrefix_.clear();
     banglaSuggestionActive_ = false;
     endCandidateUi();
+    unadviseLayoutSink();
     candidateWindow_.clear();
 }
 
@@ -1498,6 +1523,7 @@ void TextService::setBanglaSuggestions(std::string prefix, ITfContext* context) 
     }
     candidateWindow_.setCandidates(std::move(display));
     syncCandidateUi();
+    adviseLayoutSink();
 }
 
 void TextService::updateCandidates() {
@@ -1594,6 +1620,7 @@ void TextService::positionCandidates(TfEditCookie cookie, ITfContext* context) {
 
 void TextService::clearCompositionState() noexcept {
     endCandidateUi();
+    unadviseLayoutSink();
     if (composition_ != nullptr) {
         composition_->Release();
         composition_ = nullptr;
@@ -1756,6 +1783,98 @@ void TextService::setCandidateSelection(std::size_t index) {
 
 ITfContext* TextService::compositionContext() const noexcept {
     return context_ != nullptr ? context_ : suggestionContext_;
+}
+
+void TextService::adviseLayoutSink() {
+    if (layoutSinkAdvised_ || clientId_ == TF_CLIENTID_NULL) {
+        return;
+    }
+    ITfContext* context = compositionContext();
+    if (context == nullptr) {
+        return;
+    }
+    ITfSource* source = nullptr;
+    if (FAILED(context->QueryInterface(IID_ITfSource, reinterpret_cast<void**>(&source))) ||
+        source == nullptr) {
+        return;
+    }
+    const HRESULT result = source->AdviseSink(IID_ITfTextLayoutSink,
+                                              static_cast<ITfTextLayoutSink*>(this),
+                                              &layoutSinkCookie_);
+    source->Release();
+    if (SUCCEEDED(result)) {
+        layoutContext_ = context;
+        layoutContext_->AddRef();
+        layoutSinkAdvised_ = true;
+    }
+}
+
+void TextService::unadviseLayoutSink() noexcept {
+    if (layoutContext_ != nullptr) {
+        if (layoutSinkAdvised_) {
+            ITfSource* source = nullptr;
+            if (SUCCEEDED(layoutContext_->QueryInterface(
+                    IID_ITfSource, reinterpret_cast<void**>(&source))) &&
+                source != nullptr) {
+                source->UnadviseSink(layoutSinkCookie_);
+                source->Release();
+            }
+        }
+        layoutContext_->Release();
+        layoutContext_ = nullptr;
+    }
+    layoutSinkAdvised_ = false;
+    layoutSinkCookie_ = TF_INVALID_COOKIE;
+}
+
+// Runs the placement retry outside the composing edit session. A synchronous
+// read is tried first because the layout notification arrives at a point
+// where hosts grant it; the asynchronous read covers the hosts that refuse
+// synchronous sessions outside key processing.
+void TextService::requestPositioning() {
+    if (clientId_ == TF_CLIENTID_NULL ||
+        (composition_ == nullptr && !banglaSuggestionActive_)) {
+        return;
+    }
+    ITfContext* context = compositionContext();
+    if (context == nullptr) {
+        return;
+    }
+    HRESULT sessionResult = E_FAIL;
+    auto* session = new (std::nothrow) EditSession(this, context, EditMode::Position, {}, {}, 0);
+    if (session == nullptr) {
+        return;
+    }
+    const HRESULT result =
+        context->RequestEditSession(clientId_, session, TF_ES_SYNC | TF_ES_READ, &sessionResult);
+    session->Release();
+    if (SUCCEEDED(result) && SUCCEEDED(sessionResult)) {
+        return;
+    }
+    auto* retry = new (std::nothrow) EditSession(this, context, EditMode::Position, {}, {}, 0);
+    if (retry != nullptr) {
+        HRESULT retryResult = E_FAIL;
+        (void)context->RequestEditSession(clientId_, retry, TF_ES_ASYNC | TF_ES_READ,
+                                          &retryResult);
+        retry->Release();
+    }
+}
+
+HRESULT STDMETHODCALLTYPE TextService::OnLayoutChange(ITfContext* context, TfLayoutCode code,
+                                                      ITfContextView* view) {
+    (void)view;
+    if (code == TF_LC_DESTROY) {
+        // The host tore the view down; the anchor would only mislead.
+        candidateWindow_.hide();
+        hasCandidateAnchor_ = false;
+        return S_OK;
+    }
+    if (code != TF_LC_CHANGE || context == nullptr || context != compositionContext() ||
+        (!composing_ && !banglaSuggestionActive_)) {
+        return S_OK;
+    }
+    requestPositioning();
+    return S_OK;
 }
 
 // Reads a BGDX image from beside the module. Returns an empty string when the

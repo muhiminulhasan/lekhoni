@@ -353,9 +353,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1
 ```
 
 The uninstaller reverses both architectures' registration, verifies the COM
-keys are gone, removes `%ProgramFiles%\Lekhoni`, and leaves your source
-checkout and `%LOCALAPPDATA%\Lekhoni` (the selection memory) untouched. Sign
-out and back in afterwards.
+keys are gone, removes `%ProgramFiles%\Lekhoni`, and deletes the current
+user's selection memory under `%LOCALAPPDATA%\Lekhoni`. It then asks whether
+to sign out immediately. Files still loaded by running applications cannot be
+removed on the spot; the uninstaller schedules a `LekhoniCleanup` task that
+deletes them at the next sign-in and removes itself afterwards.
 
 ---
 

@@ -18,7 +18,8 @@ class TextService final : public ITfTextInputProcessorEx,
                           public ITfKeyEventSink,
                           public ITfCompositionSink,
                           public ITfThreadMgrEventSink,
-                          public ITfThreadFocusSink {
+                          public ITfThreadFocusSink,
+                          public ITfTextLayoutSink {
 public:
     TextService();
     ~TextService();
@@ -57,6 +58,9 @@ public:
     HRESULT STDMETHODCALLTYPE OnSetThreadFocus() override;
     HRESULT STDMETHODCALLTYPE OnKillThreadFocus() override;
 
+    HRESULT STDMETHODCALLTYPE OnLayoutChange(ITfContext* context, TfLayoutCode code,
+                                             ITfContextView* view) override;
+
 private:
     friend class EditSession;
     friend class CandidateListUiElement;
@@ -85,6 +89,7 @@ private:
         Finish,
         Cancel,
         Insert,
+        Position,
         ReadBanglaPrefix,
         ReplaceBanglaPrefix,
         ClearCompositionAttribute,
@@ -138,6 +143,14 @@ private:
     void setCandidateSelection(std::size_t index);
     [[nodiscard]] ITfContext* compositionContext() const noexcept;
 
+    // Layout-change tracking. Hosts that compute text layout asynchronously
+    // (Firefox among them) answer GetTextExt only after the view has been
+    // re-laid-out, so placement is retried from the layout notification
+    // through a read-only edit session.
+    void adviseLayoutSink();
+    void unadviseLayoutSink() noexcept;
+    void requestPositioning();
+
     volatile LONG referenceCount_ = 1;
     ITfThreadMgr* threadManager_ = nullptr;
     ITfKeystrokeMgr* keystrokeManager_ = nullptr;
@@ -171,6 +184,9 @@ private:
     CandidateListUiElement* candidateUiElement_ = nullptr;
     DWORD uiElementId_ = TF_INVALID_UIELEMENTID;
     bool systemRendersCandidates_ = false;
+    ITfContext* layoutContext_ = nullptr;
+    DWORD layoutSinkCookie_ = TF_INVALID_COOKIE;
+    bool layoutSinkAdvised_ = false;
     std::wstring userSelectionsPath_;
     std::size_t unsavedSelections_ = 0;
     std::size_t savedSelectionCount_ = 0;
