@@ -264,8 +264,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\package.ps1
 This always performs a hermetic `-Clean` build with tests, then produces:
 
 ```text
-artifacts\Lekhoni-win-x86-x64.zip
+artifacts\Lekhoni-win-x86-x64.zip        full package
+artifacts\Lekhoni-win-x86-x64-lite.zip   same package without the trigram table
 ```
+
+Releases publish both variants so users can choose:
+
+| Variant | Contains | Pick it when |
+|---|---|---|
+| `Lekhoni-win-x86-x64.zip` | Everything, including `LekhoniTrigrams.dat` (context-aware next-word prediction) | You want next-word suggestions and don't mind the larger download |
+| `Lekhoni-win-x86-x64-lite.zip` | Identical binaries, dictionaries, layout table, and compliance set, but no `LekhoniTrigrams.dat` | You want the smaller download and can live without next-word prediction |
 
 Package contents (per architecture):
 
@@ -275,6 +283,7 @@ bin\<arch>\LekhoniCore.bgk
 bin\<arch>\LekhoniPhrases.bgk
 bin\<arch>\AvroLayout.dat
 bin\<arch>\LekhoniRegistration.exe
+bin\<arch>\LekhoniTrigrams.dat   (full package only)
 LekhoniSetup.exe
 install.ps1, uninstall.ps1, README.md, RELEASE_CHECKLIST.md, LICENSE
 ```

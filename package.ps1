@@ -136,3 +136,29 @@ if (-not $UseStarterDictionary -and -not $DictionarySource) {
 Compress-Archive -Path (Join-Path $package '*') -DestinationPath $archive -CompressionLevel Optimal
 $archiveInfo = Get-Item -LiteralPath $archive
 Write-Host "Created $($archiveInfo.FullName) ($($archiveInfo.Length) bytes)."
+
+# The lite variant is the same package without the trigram next-word table
+# (the largest single data file): users who do not want the prediction
+# corpus can pick a much smaller download. Everything else - binaries,
+# dictionaries, layout table, installer, and the full GPL compliance set -
+# is identical, so the choice costs no features besides next-word
+# prediction. Starter builds carry no trigram table in the first place, so
+# a lite variant would only duplicate the archive.
+$liteTrigram = Join-Path $package 'bin\x64\LekhoniTrigrams.dat'
+if (Test-Path -LiteralPath $liteTrigram -PathType Leaf) {
+    $litePackage = Join-Path $artifacts 'Lekhoni-win-x86-x64-lite'
+    $liteArchive = "$litePackage.zip"
+    if (Test-Path -LiteralPath $litePackage) {
+        Remove-Item -LiteralPath $litePackage -Recurse -Force
+    }
+    if (Test-Path -LiteralPath $liteArchive) {
+        Remove-Item -LiteralPath $liteArchive -Force
+    }
+    Copy-Item -LiteralPath $package -Destination $litePackage -Recurse
+    foreach ($architecture in @('Win32', 'x64')) {
+        Remove-Item -LiteralPath (Join-Path $litePackage "bin\$architecture\LekhoniTrigrams.dat") -Force
+    }
+    Compress-Archive -Path (Join-Path $litePackage '*') -DestinationPath $liteArchive -CompressionLevel Optimal
+    $liteInfo = Get-Item -LiteralPath $liteArchive
+    Write-Host "Created $($liteInfo.FullName) ($($liteInfo.Length) bytes, no trigram table)."
+}

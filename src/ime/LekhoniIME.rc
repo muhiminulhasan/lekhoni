@@ -4,8 +4,8 @@
 IDI_LEKHONI_ICON ICON "..\\..\\assets\\Lekhoni.ico"
 
 1 VERSIONINFO
-FILEVERSION 0,1,1,0
-PRODUCTVERSION 0,1,1,0
+FILEVERSION 0,1,2,0
+PRODUCTVERSION 0,1,2,0
 FILEFLAGSMASK 0x3fL
 FILEFLAGS 0x0L
 FILEOS VOS_NT_WINDOWS32
@@ -17,11 +17,11 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "FileDescription", "Lekhoni Bangla Phonetic Keyboard"
-            VALUE "FileVersion", "0.1.1.0"
+            VALUE "FileVersion", "0.1.2.0"
             VALUE "InternalName", "LekhoniIME"
             VALUE "OriginalFilename", "LekhoniIME.dll"
             VALUE "ProductName", "Lekhoni"
-            VALUE "ProductVersion", "0.1.1.0"
+            VALUE "ProductVersion", "0.1.2.0"
         END
     END
     BLOCK "VarFileInfo"

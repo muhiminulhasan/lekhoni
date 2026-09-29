@@ -23,11 +23,18 @@ jobs:
         shell: pwsh
         run: ./package.ps1
 
-      - name: Compute SHA-256 checksum
+      - name: Compute SHA-256 checksums
         shell: pwsh
         run: |
-          $hash = (Get-FileHash -LiteralPath 'artifacts/Lekhoni-win-x86-x64.zip' -Algorithm SHA256).Hash
-          "$($hash.ToLower())  Lekhoni-win-x86-x64.zip" | Out-File -Encoding ascii artifacts/checksums.txt
+          $lines = @()
+          foreach ($name in @('Lekhoni-win-x86-x64.zip', 'Lekhoni-win-x86-x64-lite.zip')) {
+            $path = "artifacts/$name"
+            if (Test-Path -LiteralPath $path) {
+              $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+              $lines += "$($hash.ToLower())  $name"
+            }
+          }
+          $lines | Out-File -Encoding ascii artifacts/checksums.txt
           Get-Content artifacts/checksums.txt
 
       - name: Create GitHub release
@@ -35,10 +42,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create ${{ github.ref_name }} `
-            artifacts/Lekhoni-win-x86-x64.zip artifacts/checksums.txt `
+          $assets = @('artifacts/Lekhoni-win-x86-x64.zip')
+          if (Test-Path -LiteralPath 'artifacts/Lekhoni-win-x86-x64-lite.zip') {
+            $assets += 'artifacts/Lekhoni-win-x86-x64-lite.zip'
+          }
+          $assets += 'artifacts/checksums.txt'
+          gh release create ${{ github.ref_name }} $assets `
             --title "Lekhoni ${{ github.ref_name }}" `
             --generate-notes `
-            --notes "Unsigned integration build. Third-party-derived data ships under its upstream licenses (GPL-2.0+, MPL-2.0, CC BY-SA 3.0) with the compliance set included; see THIRD_PARTY_NOTICES.md and RELEASE_CHECKLIST.md." `
+            --notes "Unsigned integration build. Two variants: the full package (with the trigram next-word prediction table) and the lite package (identical, without that table). Third-party-derived data ships under its upstream licenses (GPL-2.0+, MPL-2.0, CC BY-SA 3.0) with the compliance set included; see THIRD_PARTY_NOTICES.md and RELEASE_CHECKLIST.md." `
             --prerelease
           # Remove --prerelease once binaries are Authenticode-signed.
