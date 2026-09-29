@@ -212,40 +212,51 @@ void InputEngine::refreshCandidates() {
     for (const auto& match : phraseMatches) {
         addCandidate(match, false);
     }
-    for (const auto& match : matches) {
-        addCandidate(match, false);
-    }
-    if (!contextWord_.empty() && trigrams_.isLoaded()) {
-        // Context trigram statistics first: they know what actually follows
-        // this word, where the static hint lists only know what the author
-        // once attached to it. Falls back to the bigram tail internally.
-        for (const std::string& continuation :
-             trigrams_.next(contextPrevWord_, contextWord_, 3)) {
-            if (predictionFits(continuation)) {
-                addTextCandidate(continuation, false);
-            }
-        }
-    }
+
+    // Context predictions get reserved slots. Simply appending them after the
+    // dictionary tail never surfaced anything: with the full corpus any
+    // realistic prefix already fills all nine slots at the first keystroke.
+    // The dictionary instead yields up to two of its weakest ranks so the
+    // statistically likely next word is actually reachable. Direct output,
+    // layout output, phrase hits, and the fuzzy-typo fallback keep their
+    // places ahead of the reserved slots, and selection-memory promotion
+    // still reorders everything afterwards.
+    std::vector<std::string> contextPredictions;
     if (!contextWord_.empty()) {
-        // The compiled core image is checked in as a binary, but it is not the
-        // source of truth: build.ps1 compiles data\source\imported-core.tsv, which is
-        // also checked in, and that TSV carries no fourth column, so the core
-        // contributes no prediction lists. Asking only the core would make this
-        // feature dead in the shipped build. The phrase layer is project-authored and
-        // does carry them, so it is consulted too. addTextCandidate drops
-        // duplicates, so an overlap between the two is harmless.
-        for (const auto& prediction : dictionary_.predictions(contextWord_, 3)) {
-            if (predictionFits(prediction)) {
-                addTextCandidate(prediction, false);
-            }
-        }
-        if (phrases_.isLoaded()) {
-            for (const auto& prediction : phrases_.predictions(contextWord_, 3)) {
-                if (predictionFits(prediction)) {
-                    addTextCandidate(prediction, false);
+        const auto collectPredictions = [&](const std::vector<std::string>& predictions) {
+            for (const std::string& prediction : predictions) {
+                if (contextPredictions.size() >= 2) {
+                    break;
+                }
+                if (predictionFits(prediction) &&
+                    std::find(contextPredictions.begin(), contextPredictions.end(),
+                              prediction) == contextPredictions.end()) {
+                    contextPredictions.push_back(prediction);
                 }
             }
+        };
+        // Trigram statistics know what actually follows this word; the static
+        // hint lists only know what the author once attached to it. The core
+        // dictionary image carries no prediction lists at all (see the
+        // build notes in build.ps1), so in the shipped build this comes from
+        // the trigram table and the phrase layer.
+        if (trigrams_.isLoaded()) {
+            collectPredictions(trigrams_.next(contextPrevWord_, contextWord_, 3));
         }
+        collectPredictions(dictionary_.predictions(contextWord_, 3));
+        if (phrases_.isLoaded()) {
+            collectPredictions(phrases_.predictions(contextWord_, 3));
+        }
+    }
+    const std::size_t dictionaryBudget = 9 - contextPredictions.size();
+    for (const auto& match : matches) {
+        if (candidates_.size() >= dictionaryBudget) {
+            break;
+        }
+        addCandidate(match, false);
+    }
+    for (const auto& prediction : contextPredictions) {
+        addTextCandidate(prediction, false);
     }
     for (const auto& match : fuzzy) {
         addCandidate(match, false);

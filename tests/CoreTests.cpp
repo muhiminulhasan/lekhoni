@@ -791,6 +791,35 @@ void testTrigramModel() {
         }
     }
     expect(sawContinuation, "the trigram continuation reaches the candidate list");
+
+    // Regression: the continuation must survive a crowded list. With the full
+    // corpus the dictionary tail used to consume all nine slots at the first
+    // keystroke, so the prediction never reached the user. The dictionary
+    // here deliberately offers no word for the typed prefix beyond the crowd,
+    // making the continuation reachable only through the reserved slot.
+    lekho::bn::DictionaryBuilder crowd;
+    const char* crowdKeys[] = {"ba", "bb", "bc", "bd", "be", "bf",
+                               "bg", "bh", "bi", "bj", "bk", "bl"};
+    const char* crowdWords[] = {"বক", "বখ", "বগ", "বঘ", "বঙ", "বচ",
+                                "বছ", "বজ", "বঝ", "বঞ", "বট", "বঠ"};
+    for (int index = 0; index < 12; ++index) {
+        expect(crowd.add(crowdKeys[index], crowdWords[index], 9000), "add crowd word");
+    }
+    lekho::bn::InputEngine crowdedEngine;
+    expect(crowdedEngine.loadDictionary(crowd.build()), "crowded engine dictionary");
+    crowdedEngine.loadTrigrams(image);
+    crowdedEngine.setContextWord("আমি");
+    crowdedEngine.setContextWord("ভালো");
+    expect(crowdedEngine.appendCodePoint(L'b'), "append b");
+    bool sawPrediction = false;
+    for (const auto& candidate : crowdedEngine.candidates()) {
+        if (candidate.utf8 == "বাংলা") {
+            sawPrediction = true;
+        }
+    }
+    expect(crowdedEngine.candidates().size() <= 9, "the crowded list stays within nine");
+    expect(sawPrediction,
+           "the trigram prediction is reachable despite a crowded dictionary");
 }
 
 void testNuktaSpelling() {
